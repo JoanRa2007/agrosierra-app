@@ -61,7 +61,7 @@ class DetalleViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetalleUiState())
 
-    fun cerrarCampania() = ejecutar {
+    fun cerrarCampania(): Unit = ejecutar {
         when (val r = cerrarCampaniaUseCase(loteId)) {
             is Resultado.Exito -> avisos.mostrar("Campania del lote ${r.dato.codigo} cerrada")
             is Resultado.Fallo -> when (r.error) {
@@ -71,7 +71,7 @@ class DetalleViewModel(
         }
     }
 
-    fun eliminar(labor: Labor) = ejecutar {
+    fun eliminar(labor: Labor): Unit = ejecutar {
         when (val r = eliminarLaborUseCase(labor.id)) {
             is Resultado.Exito -> avisos.mostrar("Labor eliminada")
             is Resultado.Fallo -> when (r.error) {
