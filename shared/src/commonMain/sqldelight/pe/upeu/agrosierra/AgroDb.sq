@@ -1,0 +1,90 @@
+-- sqldelight/pe/upeu/agrosierra/AgroDb.sq
+-- Esquema entregado (seccion 4.6) + consultas de AgroCampo. Autor: Joan Rodriguez
+CREATE TABLE lote (
+    id INTEGER NOT NULL PRIMARY KEY,
+    codigo TEXT NOT NULL, nombre TEXT NOT NULL,
+    hectareas REAL NOT NULL, cultivo TEXT NOT NULL,
+    valle TEXT NOT NULL, campaniaCerrada INTEGER NOT NULL,
+    dosisMaxima REAL NOT NULL
+);
+
+CREATE TABLE labor (
+    id INTEGER NOT NULL PRIMARY KEY,
+    loteId INTEGER NOT NULL, tipo TEXT NOT NULL,
+    fecha TEXT NOT NULL, responsable TEXT NOT NULL,
+    cantidad REAL NOT NULL, observacion TEXT NOT NULL,
+    pendiente INTEGER NOT NULL
+);
+
+-- Clave/valor para datos de control (fecha de la ultima sincronizacion).
+CREATE TABLE metadato (
+    clave TEXT NOT NULL PRIMARY KEY,
+    valor TEXT NOT NULL
+);
+
+-- ================= Lotes =================
+observarLotes:
+SELECT * FROM lote
+WHERE (:valle IS NULL OR valle = :valle)
+  AND (:texto IS NULL OR nombre LIKE '%' || :texto || '%' OR codigo LIKE '%' || :texto || '%')
+ORDER BY codigo;
+
+observarLote:
+SELECT * FROM lote WHERE id = ?;
+
+observarValles:
+SELECT DISTINCT valle FROM lote ORDER BY valle;
+
+guardarLote:
+INSERT OR REPLACE INTO lote(id, codigo, nombre, hectareas, cultivo, valle, campaniaCerrada, dosisMaxima)
+VALUES ?;
+
+idsLotes:
+SELECT id FROM lote;
+
+-- ================= Labores =================
+observarLaboresPorLote:
+SELECT * FROM labor WHERE loteId = ? ORDER BY fecha DESC;
+
+-- COALESCE evita el NULL de la tabla vacia; el minOf de Kotlin
+-- garantiza que el id provisional sea siempre negativo.
+siguienteIdLocal:
+SELECT COALESCE(MIN(id), 0) FROM labor;
+
+obtenerLabor:
+SELECT * FROM labor WHERE id = ?;
+
+guardarLabor:
+INSERT OR REPLACE INTO labor(id, loteId, tipo, fecha, responsable, cantidad, observacion, pendiente)
+VALUES ?;
+
+-- Al bajar del servidor no se pisa una fila que tiene cambios locales pendientes.
+guardarLaborSiNoPendiente:
+INSERT OR IGNORE INTO labor(id, loteId, tipo, fecha, responsable, cantidad, observacion, pendiente)
+VALUES ?;
+
+eliminarLabor:
+DELETE FROM labor WHERE id = ?;
+
+eliminarSincronizadasDeLote:
+DELETE FROM labor WHERE loteId = ? AND pendiente = 0;
+
+-- Orden de envio: primero las creaciones en el orden en que se hicieron (-1, -2, ...).
+laboresPendientes:
+SELECT * FROM labor WHERE pendiente = 1 ORDER BY CASE WHEN id < 0 THEN -id ELSE id END;
+
+contarPendientes:
+SELECT COUNT(*) FROM labor WHERE pendiente = 1;
+
+-- ================= Metadatos =================
+guardarMetadato:
+INSERT OR REPLACE INTO metadato(clave, valor) VALUES (?, ?);
+
+observarMetadato:
+SELECT valor FROM metadato WHERE clave = ?;
+
+limpiarTodo {
+    DELETE FROM labor;
+    DELETE FROM lote;
+    DELETE FROM metadato;
+}
